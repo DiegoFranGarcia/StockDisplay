@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Dashboard</title>
+    
+    <!-- External Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Stock Dashboard</h1>
+        
+        <div class="controls">
+            <input 
+                type="text" 
+                id="symbolInput" 
+                placeholder="Enter stock symbols (e.g., AAPL, GOOGL, MSFT)"
+                value="AAPL,NVDA,MSFT,AMZN,SPY"
+            >
+            <button onclick="loadStocks()" id="loadBtn">Load Stocks</button>
+            <button onclick="refreshStocks()" class="refresh-btn" id="refreshBtn">🔄 Refresh</button>
+        </div>
+        
+        <div id="lastUpdated" class="last-updated"></div>
+        
+        <div id="error" class="error" style="display: none;"></div>
+        <div id="loading" class="loading" style="display: none;">Loading stock data</div>
+        
+        <div id="stockGrid" class="stock-grid"></div>
+        
+        <div id="chartContainer" class="chart-container">
+            <div class="chart-header">
+                <div class="chart-title" id="chartTitle"></div>
+                <div class="chart-controls">
+                    <select id="periodSelect" onchange="updateChartPeriod()">
+                        <option value="1d">Today</option>
+                        <option value="5d">5 Days</option>
+                        <option value="1mo">1 Month</option>
+                        <option value="3mo">3 Months</option>
+                        <option value="1y">1 Year</option>
+                    </select>
+                    <button class="close-chart" onclick="closeChart()">Close</button>
+                </div>
+            </div>
+            <canvas id="stockChart"></canvas>
+            
+            
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="script.js"></script>
+</body>
+</html>
