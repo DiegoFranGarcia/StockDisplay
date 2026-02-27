@@ -26,15 +26,14 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 
 print(f"Connecting to database: {DATABASE_URL.split('@')[1] if '@' in DATABASE_URL else 'localhost'}")
 
-# Create database engine
-engine = create_engine(DATABASE_URL, echo=False)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
+# creates database engine 
+engine = create_engine(DATABASE_URL, echo=False)    # echo=True for SQL logging
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)     # session factory
+Base = declarative_base()  # base class for models
 
 
 # DATABASE MODELS 
-class StockHistory(Base):
-    """Store historical price data for ML training"""
+class StockHistory(Base): # class to store historical stock data
     __tablename__ = "stock_history"
     
     id = Column(Integer, primary_key=True, index=True)
@@ -50,8 +49,7 @@ class StockHistory(Base):
     timestamp = Column(DateTime, default=datetime.utcnow)
 
 
-class MLPrediction(Base):
-    """Store ML model predictions"""
+class MLPrediction(Base): # class to store ML model predictions
     __tablename__ = "ml_predictions"
     
     id = Column(Integer, primary_key=True, index=True)
@@ -65,7 +63,7 @@ class MLPrediction(Base):
 
 
 # ===== DATABASE HELPERS =====
-def get_db():
+def get_db(): # dependency to get db session
     db = SessionLocal()
     try:
         yield db
@@ -73,10 +71,9 @@ def get_db():
         db.close()
 
 
-def init_db():
-    """Initialize database tables"""
+def init_db(): # initializes database tables
     try:
-        Base.metadata.create_all(bind=engine)
+        Base.metadata.create_all(bind=engine) # creates tables 
         print("✅ Database tables created successfully")
         
         # Test connection
