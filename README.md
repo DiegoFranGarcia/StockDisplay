@@ -1,8 +1,6 @@
-# StockDisplay
 User Interface that displays live stock data 
-This project is for personal use where I display live data on stocks that I am interested in and more importantly, I store notes for each stock, a feature that I am not able to do with other stock brokers. Having my own peronalized stock UI allows me better keep track of my investments.
 
-I also plan to connect my machine learning model from my Stock Market Predictor to this so that I can predict if a stock will be up or down the next day
+You are able to look up what stock you want displayed on the dashboard. When a stock is clicked on, you are able to see the machine learning model's prediction for tommorrow's result on that stock. You may also see a chart of the data with adjustable time intervals.
 
 
 Author: Diego Garcia

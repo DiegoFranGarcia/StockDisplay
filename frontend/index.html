@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stock Dashboard</title>
+    <title>Stock Dashboard </title>
     
     <!-- External Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -33,6 +33,15 @@
         
         <div id="stockGrid" class="stock-grid"></div>
         
+        <!-- ML Prediction Section -->
+        <div id="predictionSection" class="prediction-section" style="display: none;">
+            <h2>📊 ML Prediction</h2>
+            <div id="predictionContent" class="prediction-content">
+                <div class="prediction-loading">Getting prediction...</div>
+            </div>
+        </div>
+        
+        <!-- Chart Container -->
         <div id="chartContainer" class="chart-container">
             <div class="chart-header">
                 <div class="chart-title" id="chartTitle"></div>
@@ -48,8 +57,6 @@
                 </div>
             </div>
             <canvas id="stockChart"></canvas>
-            
-            
         </div>
     </div>
 

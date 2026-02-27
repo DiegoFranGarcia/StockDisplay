@@ -4,6 +4,8 @@ let currentSymbol = null;
 let autoRefreshInterval = null;
 let refreshTimeout = null;
 
+// ===== STOCK DATA FUNCTIONS =====
+
 async function loadStocks(silent = false) {
     const symbols = document.getElementById('symbolInput').value;
     
@@ -19,6 +21,7 @@ async function loadStocks(silent = false) {
         document.getElementById('error').style.display = 'none';
         document.getElementById('stockGrid').innerHTML = '';
         closeChart();
+        closePrediction();
     }
     
     try {
@@ -105,7 +108,7 @@ function createStockCard(stock) {
     const card = document.createElement('div');
     card.className = 'stock-card';
     card.dataset.symbol = stock.symbol;
-    card.onclick = () => showChart(stock.symbol);
+    card.onclick = () => showStockDetails(stock.symbol);
     
     card.innerHTML = `
         <div class="stock-symbol">${stock.symbol}</div>
@@ -141,11 +144,16 @@ function updateStockCard(card, stock) {
     card.querySelector('.stock-volume').textContent = `Volume: ${stock.volume.toLocaleString()}`;
 }
 
-async function showChart(symbol) {
+// ===== CHART FUNCTIONS =====
+
+async function showStockDetails(symbol) {
     currentSymbol = symbol;
     document.getElementById('chartContainer').classList.add('active');
     document.getElementById('periodSelect').value = '1d';
     await loadChartData(symbol, '1d');
+    
+    // Also show prediction
+    await showPrediction(symbol);
 }
 
 async function updateChartPeriod() {
@@ -200,13 +208,11 @@ async function loadChartData(symbol, period, silent = false) {
             return;
         }
         
-        // ✅ Determine if period is up or down
         const firstPrice = prices[0];
         const lastPrice = prices[prices.length - 1];
         const isPositive = lastPrice >= firstPrice;
         
-        // ✅ Set colors based on performance
-        const chartColor = isPositive ? '#10b981' : '#ef4444';  // Green or Red
+        const chartColor = isPositive ? '#10b981' : '#ef4444';
         const chartFillColor = isPositive ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)';
         
         const minPrice = Math.min(...prices);
@@ -225,8 +231,8 @@ async function loadChartData(symbol, period, silent = false) {
                 datasets: [{
                     label: 'Price',
                     data: prices,
-                    borderColor: chartColor,  // ✅ Dynamic color
-                    backgroundColor: chartFillColor,  // ✅ Dynamic fill
+                    borderColor: chartColor,
+                    backgroundColor: chartFillColor,
                     borderWidth: 2,
                     fill: true,
                     tension: 0.3,
@@ -249,7 +255,7 @@ async function loadChartData(symbol, period, silent = false) {
                         backgroundColor: 'rgba(0, 0, 0, 0.8)',
                         titleColor: '#fff',
                         bodyColor: '#fff',
-                        borderColor: chartColor,  // ✅ Dynamic border
+                        borderColor: chartColor,
                         borderWidth: 1,
                         callbacks: {
                             label: function(context) {
@@ -298,7 +304,7 @@ async function loadChartData(symbol, period, silent = false) {
 
 function getPeriodLabel(period) {
     const labels = {
-        '1d': "Last 5 Days",
+        '1d': "Today",
         '5d': 'Last Week',
         '1mo': 'Last Month',
         '3mo': 'Last 3 Months',
@@ -309,12 +315,179 @@ function getPeriodLabel(period) {
 
 function closeChart() {
     document.getElementById('chartContainer').classList.remove('active');
-    currentSymbol = null;
     if (currentChart) {
         currentChart.destroy();
         currentChart = null;
     }
 }
+
+// ===== ML PREDICTION FUNCTIONS =====
+
+async function showPrediction(symbol) {
+    const section = document.getElementById('predictionSection');
+    const content = document.getElementById('predictionContent');
+    
+    section.style.display = 'block';
+    content.innerHTML = '<div class="prediction-loading">Getting prediction for ' + symbol + '...</div>';
+    
+    try {
+        // First, check if we have enough historical data
+        const historyResponse = await fetch(`${API_URL}/db/stock/${symbol}/history?limit=1000`);
+        
+        if (!historyResponse.ok) {
+            // Need to backfill data first
+            content.innerHTML = `
+                <div class="prediction-card">
+                    <p style="color: #94a3b8; margin-bottom: 15px;">
+                        📚 This stock needs historical data before predictions can be made.
+                    </p>
+                    <p style="color: #64748b; font-size: 14px; margin-bottom: 15px;">
+                        The ML model requires at least 1000 days of historical data to calculate features.
+                    </p>
+                    <button class="prediction-button" onclick="backfillData('${symbol}')">
+                        📥 Load Historical Data (5 years)
+                    </button>
+                </div>
+            `;
+            return;
+        }
+        
+        const historyData = await historyResponse.json();
+        
+        if (historyData.length < 1000) {
+            content.innerHTML = `
+                <div class="prediction-card">
+                    <p style="color: #94a3b8; margin-bottom: 10px;">
+                        ⚠️ Only ${historyData.length} days of data available. Need 1000+ for predictions.
+                    </p>
+                    <p style="color: #64748b; font-size: 14px; margin-bottom: 15px;">
+                        The ML model uses rolling averages over 2, 5, 60, 250, and 1000 day periods.
+                    </p>
+                    <button class="prediction-button" onclick="backfillData('${symbol}')">
+                        📥 Load More Historical Data
+                    </button>
+                </div>
+            `;
+            return;
+        }
+        
+        // Make prediction
+        const response = await fetch(`${API_URL}/predict/${symbol}`, {
+            method: 'POST'
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.detail || 'Prediction failed');
+        }
+        
+        const prediction = await response.json();
+        
+        // Display prediction
+        const directionClass = prediction.prediction === 'UP' ? 'up' : 'down';
+        const arrow = prediction.prediction === 'UP' ? '▲' : '▼';
+        
+        content.innerHTML = `
+            <div class="prediction-card">
+                <div class="prediction-header">
+                    <div class="prediction-symbol">${prediction.symbol}</div>
+                    <div class="prediction-direction ${directionClass}">
+                        ${arrow} ${prediction.prediction}
+                    </div>
+                </div>
+                
+                <div class="prediction-details">
+                    <div class="prediction-stat">
+                        <div class="prediction-stat-label">Current Price</div>
+                        <div class="prediction-stat-value">$${prediction.current_price}</div>
+                    </div>
+                    
+                    <div class="prediction-stat">
+                        <div class="prediction-stat-label">Confidence</div>
+                        <div class="prediction-stat-value">${prediction.confidence}%</div>
+                        <div class="prediction-confidence">
+                            <div class="prediction-confidence-bar" style="width: ${prediction.confidence}%"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="prediction-stat">
+                        <div class="prediction-stat-label">For Date</div>
+                        <div class="prediction-stat-value" style="font-size: 16px;">
+                            ${new Date(prediction.prediction_date).toLocaleDateString()}
+                        </div>
+                    </div>
+                    
+                    <div class="prediction-stat">
+                        <div class="prediction-stat-label">Model</div>
+                        <div class="prediction-stat-value" style="font-size: 16px;">
+                            ${prediction.model_version}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="prediction-note">
+                    <strong>ℹ️ How it works:</strong> The model analyzes price ratios and trends over 2, 5, 60, 250, and 1000 day periods. 
+                    Predictions require ${prediction.threshold * 100}% confidence to signal UP.
+                </div>
+            </div>
+        `;
+        
+    } catch (error) {
+        content.innerHTML = `
+            <div class="prediction-error">
+                ❌ Error getting prediction: ${error.message}
+            </div>
+        `;
+    }
+}
+
+async function backfillData(symbol) {
+    const content = document.getElementById('predictionContent');
+    content.innerHTML = `
+        <div class="prediction-loading">
+            📥 Loading historical data for ${symbol}...<br>
+            <span style="font-size: 14px; color: #64748b;">This may take a minute.</span>
+        </div>
+    `;
+    
+    try {
+        const response = await fetch(`${API_URL}/stock/${symbol}/backfill?years=5`);
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.detail || 'Failed to load historical data');
+        }
+        
+        const result = await response.json();
+        
+        content.innerHTML = `
+            <div class="prediction-card">
+                <h3 style="color: #10b981; margin-bottom: 15px;">✓ Data Loaded Successfully</h3>
+                <p style="color: #94a3b8; margin-bottom: 10px;">
+                    📊 Loaded <strong>${result.records_fetched}</strong> records
+                </p>
+                <p style="color: #64748b; font-size: 14px; margin-bottom: 15px;">
+                    Date range: ${result.date_range.start} to ${result.date_range.end}
+                </p>
+                <button class="prediction-button" onclick="showPrediction('${symbol}')">
+                    🔮 Get Prediction Now
+                </button>
+            </div>
+        `;
+    } catch (error) {
+        content.innerHTML = `
+            <div class="prediction-error">
+                ❌ Error loading data: ${error.message}
+            </div>
+        `;
+    }
+}
+
+function closePrediction() {
+    document.getElementById('predictionSection').style.display = 'none';
+}
+
+// ===== UTILITY FUNCTIONS =====
 
 function refreshStocks() {
     if (refreshTimeout) {
@@ -352,7 +525,7 @@ function startAutoRefresh() {
     
     autoRefreshInterval = setInterval(() => {
         loadStocks(true);
-    }, 120000); 
+    }, 120000); // 2 minutes
 }
 
 function stopAutoRefresh() {
@@ -361,6 +534,8 @@ function stopAutoRefresh() {
         autoRefreshInterval = null;
     }
 }
+
+// ===== INITIALIZATION =====
 
 window.onload = () => {
     loadStocks(false);
